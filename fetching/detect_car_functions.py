@@ -143,6 +143,7 @@ def detect_and_log_cars(car_array):
     """ this function takes a car as argument (bool, [img1,img2,img3]), converts license palte to text and writes this to files """
     drive_in = car_array[0]
     images = car_array[1]
+    time = car_array[2]
     output = []
     # loop through the three images
     for i in range(3):
@@ -153,13 +154,13 @@ def detect_and_log_cars(car_array):
         plate_num = plate_num.replace(" ", "")
         # save the output to a list
         output.append(plate_num)
-    
+
     detected_license_plate = filter_plate_text(output)
     print("detected_license_plate: ", detected_license_plate)
 
     if drive_in:
-        print(f"the car with licence palte {detected_license_plate} driving in")
-        write_to_csv_drive_in(detected_license_plate)
+        print(f"the car with license plate {detected_license_plate} driving in")
+        write_to_csv_drive_in(detected_license_plate, time)
     else:
-        print(f"the car with licence palte {detected_license_plate} driving out")
-        write_to_csv_drive_out(detected_license_plate)
+        print(f"the car with license plate {detected_license_plate} driving out")
+        write_to_csv_drive_out(detected_license_plate, time)

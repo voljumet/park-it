@@ -5,14 +5,16 @@ import cv2
 
 
 def load_data(file_pth):
+    """ This function will load the data from the csv file and return the data as a dictionary. """
     data_file = glob.glob('runs/track/'+file_pth+'/tracks/*.csv')
     with open(data_file[0], 'r') as f:
         data = list(csv.reader(f))
         f.close()
-        return  [[float(x) for x in row] for row in data]
+        return [[float(x) for x in row] for row in data]
 
 
 def delete_data(all_ids, file_pth):
+    """ This function will delete the data of the cars that are processed."""
     data_file = glob.glob('runs/track/'+file_pth+'/tracks/*.csv')
     keep_rows = list()
     with open(data_file[0], 'r') as f:
@@ -21,7 +23,7 @@ def delete_data(all_ids, file_pth):
             if int(float(row[1])) not in all_ids:
                 keep_rows.append(row)
 
-    # write the rows we want to keep to the file
+    # write the rows that has not been processed, back to the csv file
     with open(data_file[0], 'w') as f:
         writer = csv.writer(f)
         writer.writerows(keep_rows)
@@ -30,6 +32,7 @@ def delete_data(all_ids, file_pth):
 
 
 def sort_into_dict(data, number_of_cars_in_file):
+    """ This function will sort the data into a dictionary with the car id as key, the frame number as the second key, the bounding box and the timestamp as an array. """
     dict = {}
     for each_entry in data:
         frame_number = int(each_entry[0])
@@ -56,12 +59,13 @@ def sort_into_dict(data, number_of_cars_in_file):
     return dict
 
 
-def get_best_license_plate(car_dict,frame_width):
+def get_best_license_plate(car_dict, frame_width):
+    """ This function will return the three best frames of the car and the direction the car is going. """
     car_entering = False
     sorting_list = []
     
     for frame_number in car_dict:
-        # frame = each[0]
+
         size = car_dict[frame_number][0][-1] * car_dict[frame_number][0][-2]
         right_side = car_dict[frame_number][0][0] + car_dict[frame_number][0][2]
         left_side = car_dict[frame_number][0][0]
@@ -77,11 +81,15 @@ def get_best_license_plate(car_dict,frame_width):
     if sorting_list[0][0] > sorting_list[length_of_sort][0] and sorting_list[0][0] > sorting_list[int(length_of_sort/2)][0]:
         car_entering = True
 
-    # return boolean if car is entering or leaving the parking lot, and the frame numbers of the 3 biggest bounding boxes found
-    return car_entering, [x[0] for x in sorting_list[:3]]
+    frames_to_return = [x[0] for x in sorting_list[:3]]
+    timestamp = car_dict[frames_to_return[0]][1]
+
+    # return boolean if car is entering or leaving the parking lot, the frame numbers of the 3 biggest bounding boxes found, and the timestamp of the last frame
+    return car_entering, frames_to_return, timestamp
 
 
 def load_image(frame_number, bounding_box_array, file_pth):
+    """ This function will load the image of the frame and crop it to the bounding box of the car. """
     # load image
     img = cv2.imread('runs/track/'+file_pth+'/frame id_'+str(frame_number)+'.jpg')
     # crop the image to the size of the bounding box
@@ -90,21 +98,25 @@ def load_image(frame_number, bounding_box_array, file_pth):
 
 
 def get_car_images(car_dict, file_pth, frame_width):
+    """ This function will use the three best frames of the car to load the images and return them in an array together with the direction the car is going. """
     car_array = []
     for car_id in car_dict:
         # get the best license plate for each car
-        car_entering, frames = get_best_license_plate(car_dict[car_id], frame_width)
+        car_entering, frames, timestamp = get_best_license_plate(car_dict[car_id], frame_width)
         cropped_car_images = []
         for each_frame in frames:
             img = load_image(each_frame, car_dict[car_id][each_frame][0], file_pth)
             cropped_car_images.append(img)
         
-        car_array.append([car_entering, cropped_car_images])
+        car_array.append([car_entering, cropped_car_images, timestamp])
 
     return car_array
 
 
 def delete_images(car_dictionary, file_pth):
+    """ This function will delete the images of the cars that are processed."""
+    
+    # TODO: if frame contains multiple cars, do not delete the image
     # frames with multiple cars
     # frames with no cars
 
@@ -113,22 +125,24 @@ def delete_images(car_dictionary, file_pth):
             os.remove('runs/track/'+file_pth+'/frame id_'+str(frame)+'.jpg')
 
 
-# TODO: if frame contains multiple cars, do not delete the image
 
-def fetch_cars(number_of_cars_in_file, file_pth, frame_width):
+def fetch_cars(number_of_cars_in_file, file_pth, frame_width, delete_cars=False):
+    """ This function will: load csv file, check how many different cars there are in the file, fetch the three largest bounding boxes for each car, check what direction the car is going, and delete the images and data from the csv that are not needed anymore. """
     # load data from csv file
     data = load_data(file_pth)
 
     # sort data into dictionary
     car_dictionary = sort_into_dict(data, number_of_cars_in_file)
 
-    # delete the loaded data from the csv file
-    delete_data(list(car_dictionary.keys()), file_pth)
+    if delete_cars:
+        # delete the loaded data from the csv file
+        delete_data(list(car_dictionary.keys()), file_pth)
 
     # get the 3 best license plate photos for each car and the direction of the car
     car_array = get_car_images(car_dictionary, file_pth, frame_width)
     
-    # delete the images containing the cars extracted
-    delete_images(car_dictionary, file_pth)
+    if delete_cars:
+        # delete the images containing the cars extracted
+        delete_images(car_dictionary, file_pth)
 
     return car_array

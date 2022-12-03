@@ -4,46 +4,32 @@ import os
 from datetime import datetime
 
 
-def write_to_csv_drive_in(_plate_number):  
+def writer(file_to_open, mode, drive_direction_colums_headers, plate_number, clock_time):
+    """ this function takes the file name, the mode, the headers and the plate number as arguments, and writes the plate number to the csv file """
+    date_time_string = datetime.fromtimestamp(clock_time).strftime('%d/%m/%Y %H:%M:%S')
+
+    with open(file_to_open, mode) as f:
+        writer = csv.writer(f)
+        if mode == 'w':
+            writer.writerow(drive_direction_colums_headers)
+        writer.writerow([plate_number, date_time_string])
+        f.close()
+
+
+
+def write_to_csv_drive_in(plate_number, time):  
     """ write the plate number to the csv files when a car is etnering the parking lot """ 
-    # Headrs for the csv files
-    drive_in_colums_headers = ['Plate Number', 'Date and time']
-    drive_out_colums_headers = ['Plate Number', 'Drive in time', 'Drive out time', 'Duration']
-
-    # This will change with accual value 
-    plate_number = _plate_number
-
-    #########  get the current date and time #######
-    now = datetime.now()
-    # dd/mm/YY H:M:S
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    #############################################
-
-    # if the header is already written, then don't write it again. If not, then write it
+    
+    # If the header is already written, then don't write it again.
     if not os.path.exists('drive_in.csv'):
-        with open('drive_in.csv', 'w') as f:
-            writer = csv.writer(f)
-            writer.writerow(drive_in_colums_headers)
-            writer.writerow([plate_number,dt_string])
-            f.close()
+        writer('drive_in.csv', 'w', ['Plate Number', 'Date and time'], plate_number, time)
     else:
-        with open('drive_in.csv', 'a') as f:
-            writer = csv.writer(f)
-            writer.writerow([plate_number,dt_string])
-            f.close()
+        writer('drive_in.csv', 'a', None, plate_number, time)
 
     if not os.path.exists('drive_out.csv'):
-        with open('drive_out.csv', 'w') as f:
-            writer = csv.writer(f)
-            writer.writerow(drive_out_colums_headers)
-            writer.writerow([plate_number,dt_string])
-            f.close()
+        writer('drive_out.csv', 'w', ['Plate Number', 'Drive in time', 'Drive out time', 'Duration'], plate_number, time)
     else:
-        with open('drive_out.csv', 'a') as f:
-            writer = csv.writer(f)
-            writer.writerow([plate_number,dt_string])
-            f.close()
-    return
+        writer('drive_out.csv', 'a', None, plate_number, time)
 
 
 
@@ -52,19 +38,17 @@ def delete_row_from_csv(_plate_number, file_name):
     df = pd.read_csv(file_name+'.csv')
     df = df[df['Plate Number'] != _plate_number]
     df.to_csv('drive_in.csv', index=False)
-    return
 
 
 
-def write_to_csv_drive_out(_plate_number):
+def write_to_csv_drive_out(plate_number, clock_time):
     """ this function takes the plate number as argument, and writes it to the drive_out.csv file """
-    # This will change with accual value
-    plate_number = _plate_number
 
+    date_time_string = datetime.fromtimestamp(clock_time).strftime('%d/%m/%Y %H:%M:%S')
     #########  get the current date and time####
-    now = datetime.now()
+    # now = datetime.now()
     # dd/mm/YY H:M:S
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    # date_time_string = time.strftime("%d/%m/%Y %H:%M:%S")
     #############################################
 
     # read the csv file
@@ -78,7 +62,7 @@ def write_to_csv_drive_out(_plate_number):
     index = row.index[0]
 
     # update the drive out time for the plate number
-    df.at[index, 'Drive out time'] = dt_string
+    df.at[index, 'Drive out time'] = date_time_string
 
     # calculate the duration
     drive_in_time = df.at[index, 'Drive in time']
@@ -98,5 +82,5 @@ def write_to_csv_drive_out(_plate_number):
 
     # print the updated csv file
     print(df)
-    return
+    # return
 
