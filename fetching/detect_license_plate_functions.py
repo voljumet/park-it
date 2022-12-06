@@ -2,7 +2,9 @@ import easyocr
 import cv2
 import numpy as np
 import pytesseract
-import torch
+# from PIL import Image
+# from IPython.display import display
+import matplotlib.pyplot as plt
 
 from fetching.data_handling_functions import *
 
@@ -19,8 +21,9 @@ def detectx(frame, model):
     """ function to run detection on a single frame """
     frame = [frame]
     results = model(frame)
+
     labels, cordinates = results.xyxyn[0][:, -1], results.xyxyn[0][:, :-1]
-    return labels, cordinates
+    return labels, cordinates, results
 
 
 
@@ -39,7 +42,7 @@ def recognize_plate_easyocr(img, coords, reader, region_threshold):
 
     # convert nplate to gray
     nplate = cv2.cvtColor(nplate, cv2.COLOR_BGR2GRAY)
-    #display(Image.fromarray(nplate))
+    # display(Image.fromarray(nplate))
     
     scale_factor = 6
     scaled_img = cv2.resize(nplate[1:50, 0:SCREEN_WIDTH], (0,0), fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
@@ -52,7 +55,7 @@ def recognize_plate_easyocr(img, coords, reader, region_threshold):
 
     ############################ Using Pytesseract to extract text from image ########################################
     text_1 = pytesseract.image_to_string(thres_img, config='--user-words words.txt config.txt')
-    print('Text prediciton using Pytesseract:"{}"'.format(text_1)) 
+    # print('Text prediciton using Pytesseract:"{}"'.format(text_1)) 
     #############################################################################################################
 
     ####################################### using EasyORC to extract text ###############################################################
@@ -68,13 +71,13 @@ def recognize_plate_easyocr(img, coords, reader, region_threshold):
 
 
 
-def plot_boxes(results, frame, classes):
+def plot_boxes(labels, cord, frame):
     """
     --> This function takes results, frame and classes
     --> results: contains labels and coordinates predicted by model on the given frame
     --> classes: contains the string labels
     """
-    labels, cord = results
+
     n = len(labels)
     x_shape, y_shape = frame.shape[1], frame.shape[0]
 
@@ -107,49 +110,49 @@ def filter_text(region, ocr_result, region_threshold):
 
 
 
-def license_plate_to_text(image):
+def license_plate_to_text(image, model):
     """ this function uses an image as argument, and returns the text that it extracted from the image """
-    model = torch.hub.load('./yolov5', 'custom', source='local',
-                           path='weights/best_submission.pt', force_reload=True)  # The repo is stored locally
-
-    classes = model.names  # class names in string format
-    # --------------- for detection on image --------------------
-
-    results = detectx(image, model=model)  # DETECTION HAPPENING HERE
-
-    frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-    plate_num = plot_boxes(results, frame, classes=classes)
    
-    return plate_num
+    labels, cord, results = detectx(image, model=model)  # DETECTION HAPPENING HERE
+    frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    plate_num = plot_boxes(labels, cord, frame)
+   
+    return plate_num, results
 
 
 
 def filter_plate_text(strings):
-    """ this function takes a list of strings as argument, and returns the string that contains the license plate number """
+    """ this function takes a list of strings as argument, and returns the string that contains the license plate """
     result = []
+    # sort the list by length
+    strings.sort(key=len)
     for i in range(0, len(strings[0])):
         if strings[0][i] == strings[1][i] or strings[0][i] == strings[2][i]:
             result.append(strings[0][i])
+
         elif strings[1][i] == strings[2][i]:
             result.append(strings[1][i])
+
     # merge the list to a string
     result = "".join(result)
     return result
 
 
 
-def detect_and_log_cars(car_array):
+def detect_and_log_cars(car_array, model):
     """ this function takes a car as argument (bool, [img1,img2,img3]), converts license palte to text and writes this to files """
     drive_in = car_array[0]
     images = car_array[1]
     time = car_array[2]
     output = []
+    
     # loop through the three images
+    car_plate_array = []
     for i in range(3):
         # print "working with image number: ", i
         # call the main function
-        plate_num = license_plate_to_text(images[i])
+        plate_num, results = license_plate_to_text(images[i], model)
+        car_plate_array.append(results)
         # remve the space in the plate number
         plate_num = plate_num.replace(" ", "")
         # save the output to a list
@@ -157,6 +160,7 @@ def detect_and_log_cars(car_array):
 
     detected_license_plate = filter_plate_text(output)
     print("detected_license_plate: ", detected_license_plate)
+    
 
     if drive_in:
         print(f"the car with license plate {detected_license_plate} driving in")
@@ -164,3 +168,4 @@ def detect_and_log_cars(car_array):
     else:
         print(f"the car with license plate {detected_license_plate} driving out")
         write_to_csv_drive_out(detected_license_plate, time)
+    return car_plate_array

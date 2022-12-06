@@ -30,6 +30,12 @@ def write_to_csv_drive_in(plate_number, time):
         writer('drive_out.csv', 'w', ['Plate Number', 'Drive in time', 'Drive out time', 'Duration'], plate_number, time)
     else:
         writer('drive_out.csv', 'a', None, plate_number, time)
+    
+    df = pd.read_csv('./drive_in.csv')
+    print("\n--------------------------------------------------")
+    print("Cars in the parking lot:")
+    print(df)
+    print("Number of available parking spots: ", 50 - df.shape[0])
 
 
 
